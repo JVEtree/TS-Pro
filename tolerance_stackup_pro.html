@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tolerance Stack-Up Pro — DXF + ISO Fits</title>
+
+  <style>
+    :root {
+      --bg: #0e0f13;
+      --panel: #151823;
+      --panel-2: #1c2030;
+      --text: #e8e9f1;
+      --muted: #9aa0c3;
+      --accent: #6ae3ff;
+      --danger: #ff6a6a;
+      --ok: #6aff9a;
+      --warning: #ffd96a;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 600px at 10% -10%, #1b1f35, transparent), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1200px;
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border-radius: 16px;
+      padding: 28px 28px 32px;
+      box-shadow: 0 40px 120px rgba(0,0,0,.5);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: 0.3px;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .upload-btn {
+      background: var(--accent);
+      color: #0e0f13;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .upload-btn:hover {
+      background: #8bf0ff;
+      transform: translateY(-1px);
+    }
+
+    .badge {
+      background: rgba(106, 227, 255, 0.15);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+    }
+
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: rgba(255,255,255,0.02);
+      border-radius: 14px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .panel h2 {
+      margin: 0 0 14px;
+      font-size: 1.1rem;
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .global-tol {
+      background: #0f1220;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .global-tol label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .global-tol input, .global-tol select {
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      outline: none;
+      margin-bottom: 10px;
+    }
+
+    .global-tol input:focus, .global-tol select:focus {
+      border-color: var(--accent);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 40px 1fr 90px 90px 90px 90px 40px;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+      padding: 8px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .row:hover {
+      background: rgba(255,255,255,0.04);
+    }
+
+    .row.disabled {
+      opacity: 0.4;
+    }
+
+    .row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .row input, .row select {
+      background: #0f1220;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text);
+      padding: 7px 8px;
+      border-radius: 6px;
+      outline: none;
+      font-size: 0.9rem;
+    }
+
+    .row input:focus, .row select:focus {
+      border-color: var(--accent);
+    }
+
+    .row select {
+      cursor: pointer;
+    }
+
+    .source-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .source-explicit {
+      background: rgba(106, 255, 154, 0.15);
+      color: var(--ok);
+    }
+
+    .source-fit {
+      background: rgba(106, 227, 255, 0.15);
+      color: var(--accent);
+    }
+
+    .source-global {
+      background: rgba(255, 217, 106, 0.15);
+      color: var(--warning);
+    }
+
+    .remove {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 18px;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .remove:hover {
+      background: rgba(255, 106, 106, 0.1);
+      color: var(--danger);
+    }
+
+    .add {
+      width: 100%;
+      margin-top: 8px;
+      background: transparent;
+      border: 1px dashed rgba(255,255,255,0.15);
+      color: var(--muted);
+      padding: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .add:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(106, 227, 255, 0.05);
+    }
+
+    .results {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .result-box {
+      background: #0f1220;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .result-box strong {
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+
+    .value {
+      font-variant-numeric: tabular-nums;
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .ok { color: var(--ok); }
+    .bad { color: var(--danger); }
+    .warning { color: var(--warning); }
+
+    .viz {
+      margin-top: 10px;
+      height: 24px;
+      background: #0f1220;
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .viz-fill {
+      position: absolute;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #8b7bff);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    .info-box {
+      background: rgba(106, 227, 255, 0.08);
+      border: 1px solid rgba(106, 227, 255, 0.2);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      line-height: 1.5;
+    }
+
+    .warning-box {
+      background: rgba(255, 217, 106, 0.08);
+      border: 1px solid rgba(255, 217, 106, 0.2);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.85rem;
+      color: var(--warning);
+      line-height: 1.5;
+    }
+
+    footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #dxfInput {
+      display: none;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .dimension-count {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: normal;
+    }
+
+    .iso-decoder {
+      background: rgba(106, 227, 255, 0.05);
+      border: 1px solid rgba(106, 227, 255, 0.15);
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 16px;
+    }
+
+    .iso-decoder h3 {
+      margin: 0 0 12px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    .iso-test {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .iso-test input {
+      background: #0f1220;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .iso-result {
+      background: #0f1220;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 0.85rem;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div>
+      <h1>Tolerance Stack-Up Pro</h1>
+    </div>
+    <div class="header-right">
+      <span class="badge">DXF + ISO 286</span>
+      <button class="upload-btn" onclick="document.getElementById('dxfInput').click()">
+        📄 Import DXF
+      </button>
+      <input type="file" id="dxfInput" accept=".dxf" onchange="handleDXF(event)">
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <div class="panel">
+      <h2>
+        Dimensions
+        <span class="dimension-count" id="dimCount">0 dimensions</span>
+      </h2>
+
+      <div class="global-tol">
+        <label>Global Tolerance Standard</label>
+        <select id="globalStd" onchange="updateGlobalTolerance()">
+          <option value="">None</option>
+          <option value="ISO2768-f">ISO 2768-f (Fine)</option>
+          <option value="ISO2768-m" selected>ISO 2768-m (Medium)</option>
+          <option value="ISO2768-c">ISO 2768-c (Coarse)</option>
+          <option value="ISO2768-v">ISO 2768-v (Very Coarse)</option>
+        </select>
+        <label>Or custom ±</label>
+        <input type="number" id="globalCustom" step="0.001" placeholder="e.g. 0.1" onchange="updateGlobalTolerance()">
+      </div>
+
+      <div id="rows"></div>
+
+      <button class="add" onclick="addRow()">+ Add dimension</button>
+
+      <!-- ISO Fit Decoder -->
+      <div class="iso-decoder">
+        <h3>🔧 ISO Fit Decoder</h3>
+        <div class="iso-test">
+          <input type="number" id="isoNominal" placeholder="Nominal (mm)" value="50">
+          <input type="text" id="isoFit" placeholder="Fit (e.g. H7)" value="H7">
+        </div>
+        <button class="add" onclick="testISOFit()">Decode Fit</button>
+        <div id="isoResult" class="iso-result hidden"></div>
+      </div>
+    </div>
+
+    <div class="panel results">
+      <h2>Results</h2>
+
+      <div class="result-box">
+        <strong>Total Nominal</strong>
+        <span class="value" id="nominal">0.000</span>
+      </div>
+
+      <div class="result-box">
+        <strong>Total Tolerance (±)</strong>
+        <span class="value warning" id="tolerance">0.000</span>
+      </div>
+
+      <div class="result-box">
+        <strong>Range</strong>
+        <span class="value" id="range">0.000 / 0.000</span>
+      </div>
+
+      <div class="result-box">
+        <strong>Stack Sensitivity</strong>
+        <span class="value" id="sensitivity">0%</span>
+      </div>
+
+      <div class="viz">
+        <span class="viz-fill" id="viz"></span>
+      </div>
+
+      <div class="info-box">
+        <strong>Priority Order:</strong><br>
+        Explicit tolerance → ISO fit → Global tolerance
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Single-file • No backend • <a href="https://github.com" target="_blank">GitHub Pages ready</a>
+  </footer>
+</div>
+
+<script>
+  // ============================================
+  // ISO 286 TOLERANCE TABLES (SIMPLIFIED)
+  // ============================================
+  
+  const ISO286 = {
+    // Hole basis (uppercase)
+    H7: {
+      ranges: [
+        { min: 0, max: 3, upper: 10, lower: 0 },
+        { min: 3, max: 6, upper: 12, lower: 0 },
+        { min: 6, max: 10, upper: 15, lower: 0 },
+        { min: 10, max: 18, upper: 18, lower: 0 },
+        { min: 18, max: 30, upper: 21, lower: 0 },
+        { min: 30, max: 50, upper: 25, lower: 0 },
+        { min: 50, max: 80, upper: 30, lower: 0 },
+        { min: 80, max: 120, upper: 35, lower: 0 },
+        { min: 120, max: 180, upper: 40, lower: 0 },
+        { min: 180, max: 250, upper: 46, lower: 0 },
+        { min: 250, max: 315, upper: 52, lower: 0 },
+        { min: 315, max: 400, upper: 57, lower: 0 },
+        { min: 400, max: 500, upper: 63, lower: 0 }
+      ]
+    },
+    H8: {
+      ranges: [
+        { min: 0, max: 3, upper: 14, lower: 0 },
+        { min: 3, max: 6, upper: 18, lower: 0 },
+        { min: 6, max: 10, upper: 22, lower: 0 },
+        { min: 10, max: 18, upper: 27, lower: 0 },
+        { min: 18, max: 30, upper: 33, lower: 0 },
+        { min: 30, max: 50, upper: 39, lower: 0 },
+        { min: 50, max: 80, upper: 46, lower: 0 },
+        { min: 80, max: 120, upper: 54, lower: 0 },
+        { min: 120, max: 180, upper: 63, lower: 0 },
+        { min: 180, max: 250, upper: 72, lower: 0 },
+        { min: 250, max: 315, upper: 81, lower: 0 },
+        { min: 315, max: 400, upper: 89, lower: 0 },
+        { min: 400, max: 500, upper: 97, lower: 0 }
+      ]
+    },
+    // Shaft basis (lowercase)
+    h6: {
+      ranges: [
+        { min: 0, max: 3, upper: 0, lower: -6 },
+        { min: 3, max: 6, upper: 0, lower: -8 },
+        { min: 6, max: 10, upper: 0, lower: -9 },
+        { min: 10, max: 18, upper: 0, lower: -11 },
+        { min: 18, max: 30, upper: 0, lower: -13 },
+        { min: 30, max: 50, upper: 0, lower: -16 },
+        { min: 50, max: 80, upper: 0, lower: -19 },
+        { min: 80, max: 120, upper: 0, lower: -22 },
+        { min: 120, max: 180, upper: 0, lower: -25 },
+        { min: 180, max: 250, upper: 0, lower: -29 },
+        { min: 250, max: 315, upper: 0, lower: -32 },
+        { min: 315, max: 400, upper: 0, lower: -36 },
+        { min: 400, max: 500, upper: 0, lower: -40 }
+      ]
+    },
+    g6: {
+      ranges: [
+        { min: 0, max: 3, upper: -2, lower: -8 },
+        { min: 3, max: 6, upper: -4, lower: -12 },
+        { min: 6, max: 10, upper: -5, lower: -14 },
+        { min: 10, max: 18, upper: -6, lower: -17 },
+        { min: 18, max: 30, upper: -7, lower: -20 },
+        { min: 30, max: 50, upper: -9, lower: -25 },
+        { min: 50, max: 80, upper: -10, lower: -29 },
+        { min: 80, max: 120, upper: -12, lower: -34 },
+        { min: 120, max: 180, upper: -14, lower: -39 },
+        { min: 180, max: 250, upper: -15, lower: -44 },
+        { min: 250, max: 315, upper: -17, lower: -49 },
+        { min: 315, max: 400, upper: -18, lower: -54 },
+        { min: 400, max: 500, upper: -20, lower: -60 }
+      ]
+    },
+    f7: {
+      ranges: [
+        { min: 0, max: 3, upper: -6, lower: -16 },
+        { min: 3, max: 6, upper: -10, lower: -22 },
+        { min: 6, max: 10, upper: -13, lower: -28 },
+        { min: 10, max: 18, upper: -16, lower: -34 },
+        { min: 18, max: 30, upper: -20, lower: -41 },
+        { min: 30, max: 50, upper: -25, lower: -50 },
+        { min: 50, max: 80, upper: -30, lower: -60 },
+        { min: 80, max: 120, upper: -36, lower: -71 },
+        { min: 120, max: 180, upper: -43, lower: -83 },
+        { min: 180, max: 250, upper: -50, lower: -96 },
+        { min: 250, max: 315, upper: -56, lower: -108 },
+        { min: 315, max: 400, upper: -62, lower: -119 },
+        { min: 400, max: 500, upper: -68, lower: -131 }
+      ]
+    }
+  };
+
+  // ISO 2768 general tolerances (linear dimensions in mm)
+  const ISO2768 = {
+    'ISO2768-f': [
+      { min: 0.5, max: 3, tol: 0.05 },
+      { min: 3, max: 6, tol: 0.05 },
+      { min: 6, max: 30, tol: 0.1 },
+      { min: 30, max: 120, tol: 0.15 },
+      { min: 120, max: 400, tol: 0.2 },
+      { min: 400, max: 1000, tol: 0.3 },
+      { min: 1000, max: 2000, tol: 0.5 }
+    ],
+    'ISO2768-m': [
+      { min: 0.5, max: 3, tol: 0.1 },
+      { min: 3, max: 6, tol: 0.1 },
+      { min: 6, max: 30, tol: 0.2 },
+      { min: 30, max: 120, tol: 0.3 },
+      { min: 120, max: 400, tol: 0.5 },
+      { min: 400, max: 1000, tol: 0.8 },
+      { min: 1000, max: 2000, tol: 1.2 }
+    ],
+    'ISO2768-c': [
+      { min: 0.5, max: 3, tol: 0.2 },
+      { min: 3, max: 6, tol: 0.3 },
+      { min: 6, max: 30, tol: 0.5 },
+      { min: 30, max: 120, tol: 0.8 },
+      { min: 120, max: 400, tol: 1.2 },
+      { min: 400, max: 1000, tol: 2 },
+      { min: 1000, max: 2000, tol: 3 }
+    ],
+    'ISO2768-v': [
+      { min: 0.5, max: 3, tol: 0.5 },
+      { min: 3, max: 6, tol: 0.5 },
+      { min: 6, max: 30, tol: 1 },
+      { min: 30, max: 120, tol: 1.5 },
+      { min: 120, max: 400, tol: 2.5 },
+      { min: 400, max: 1000, tol: 4 },
+      { min: 1000, max: 2000, tol: 6 }
+    ]
+  };
+
+  // ============================================
+  // ISO FIT DECODER
+  // ============================================
+  
+  function decodeISO286(nominal, fitCode) {
+    const fit = ISO286[fitCode];
+    if (!fit) return null;
+
+    const absNominal = Math.abs(nominal);
+    const range = fit.ranges.find(r => absNominal >= r.min && absNominal < r.max);
+    
+    if (!range) return null;
+
+    // Convert from micrometers to millimeters
+    const upper = range.upper / 1000;
+    const lower = range.lower / 1000;
+    
+    return {
+      upper: upper,
+      lower: lower,
+      tolerance: (upper - lower) / 2,
+      fit: fitCode
+    };
+  }
+
+  function getISO2768Tolerance(nominal, standard) {
+    const table = ISO2768[standard];
+    if (!table) return null;
+
+    const absNominal = Math.abs(nominal);
+    const range = table.find(r => absNominal >= r.min && absNominal < r.max);
+    
+    return range ? range.tol : null;
+  }
+
+  function testISOFit() {
+    const nominal = parseFloat(document.getElementById('isoNominal').value);
+    const fitCode = document.getElementById('isoFit').value.trim();
+    const result = document.getElementById('isoResult');
+
+    if (!nominal || !fitCode) {
+      result.textContent = 'Please enter both nominal and fit code';
+      result.classList.remove('hidden');
+      return;
+    }
+
+    const decoded = decodeISO286(nominal, fitCode);
+    
+    if (decoded) {
+      result.innerHTML = `
+        <strong>${fitCode} @ ${nominal}mm</strong><br>
+        Upper: +${decoded.upper.toFixed(3)} mm<br>
+        Lower: ${decoded.lower.toFixed(3)} mm<br>
+        Tolerance: ±${decoded.tolerance.toFixed(3)} mm
+      `;
+    } else {
+      result.textContent = `Fit code "${fitCode}" not found. Try: H7, H8, h6, g6, f7`;
+    }
+    
+    result.classList.remove('hidden');
+  }
+
+  // ============================================
+  // DXF PARSER (BASIC)
+  // ============================================
+  
+  function handleDXF(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const content = e.target.result;
+      parseDXF(content);
+    };
+    reader.readAsText(file);
+  }
+
+  function parseDXF(content) {
+    // Very basic DXF parser - looks for DIMENSION and TEXT entities
+    const lines = content.split('\n').map(l => l.trim());
+    const dimensions = [];
+    let globalTol = null;
+
+    // Look for global tolerance in title block
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i] === 'TEXT' || lines[i] === 'MTEXT') {
+        // Look ahead for text content
+        for (let j = i; j < Math.min(i + 50, lines.length); j++) {
+          if (lines[j] === '1' && lines[j + 1]) {
+            const text = lines[j + 1].toUpperCase();
+            if (text.includes('ISO') && text.includes('2768')) {
+              if (text.includes('-F')) globalTol = 'ISO2768-f';
+              else if (text.includes('-M')) globalTol = 'ISO2768-m';
+              else if (text.includes('-C')) globalTol = 'ISO2768-c';
+              else if (text.includes('-V')) globalTol = 'ISO2768-v';
+            }
+          }
+        }
+      }
+
+      // Look for dimensions
+      if (lines[i] === 'DIMENSION') {
+        let nominal = null;
+        let tolerance = null;
+        let fit = null;
+        let name = `Dim ${dimensions.length + 1}`;
+
+        // Parse dimension entity
+        for (let j = i; j < Math.min(i + 100, lines.length); j++) {
+          // Dimension value
+          if (lines[j] === '42' && lines[j + 1]) {
+            nominal = parseFloat(lines[j + 1]);
+          }
+          
+          // Dimension text (may contain tolerance or fit)
+          if (lines[j] === '1' && lines[j + 1]) {
+            const text = lines[j + 1];
+            name = text.split(/[±+\-]/)[0].trim() || name;
+            
+            // Look for explicit tolerance ±X.XX
+            const tolMatch = text.match(/±\s*(\d+\.?\d*)/);
+            if (tolMatch) {
+              tolerance = parseFloat(tolMatch[1]);
+            }
+            
+            // Look for ISO fit codes (H7, g6, etc.)
+            const fitMatch = text.match(/\b([A-Za-z]\d+)\b/);
+            if (fitMatch && ISO286[fitMatch[1]]) {
+              fit = fitMatch[1];
+            }
+          }
+
+          if (lines[j] === 'DIMENSION' || lines[j] === 'ENDSEC') break;
+        }
+
+        if (nominal !== null) {
+          dimensions.push({ name, nominal, tolerance, fit });
+        }
+      }
+    }
+
+    // Apply parsed data
+    if (globalTol) {
+      document.getElementById('globalStd').value = globalTol;
+      updateGlobalTolerance();
+    }
+
+    if (dimensions.length > 0) {
+      // Clear existing rows
+      document.getElementById('rows').innerHTML = '';
+      
+      // Add parsed dimensions
+      dimensions.forEach(dim => {
+        let tolUpper = dim.tolerance || 0;
+        let tolLower = dim.tolerance || 0;
+        let source = 'global';
+
+        // If ISO fit is detected, decode it
+        if (dim.fit && !dim.tolerance) {
+          const decoded = decodeISO286(dim.nominal, dim.fit);
+          if (decoded) {
+            tolUpper = decoded.upper;
+            tolLower = Math.abs(decoded.lower);
+            source = 'fit';
+          }
+        } else if (dim.tolerance) {
+          source = 'explicit';
+        }
+
+        addRow(dim.name, dim.nominal, tolUpper, tolLower, '+', source);
+      });
+
+      alert(`Imported ${dimensions.length} dimensions from DXF!`);
+    } else {
+      alert('No dimensions found in DXF file. You can add them manually.');
+    }
+  }
+
+  // ============================================
+  // DIMENSION MANAGEMENT
+  // ============================================
+  
+  const rows = document.getElementById('rows');
+  let globalTolerance = null;
+
+  function updateGlobalTolerance() {
+    const std = document.getElementById('globalStd').value;
+    const custom = parseFloat(document.getElementById('globalCustom').value);
+
+    if (custom && custom > 0) {
+      globalTolerance = { type: 'custom', value: custom };
+      document.getElementById('globalStd').value = '';
+    } else if (std) {
+      globalTolerance = { type: 'standard', value: std };
+      document.getElementById('globalCustom').value = '';
+    } else {
+      globalTolerance = null;
+    }
+
+    calc();
+  }
+
+  function addRow(name = '', value = '', tolUpper = '', tolLower = '', direction = '+', source = 'manual') {
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.innerHTML = `
+      <input type="checkbox" checked onchange="calc()">
+      <input placeholder="Name" value="${name}" onchange="calc()">
+      <input type="number" step="0.001" placeholder="Nominal" value="${value}" onchange="calc()">
+      <input type="number" step="0.001" placeholder="+Tol" value="${tolUpper}" onchange="updateSource(this); calc()">
+      <input type="number" step="0.001" placeholder="-Tol" value="${tolLower}" onchange="updateSource(this); calc()">
+      <select onchange="calc()">
+        <option value="+" ${direction === '+' ? 'selected' : ''}>+</option>
+        <option value="-" ${direction === '-' ? 'selected' : ''}>−</option>
+      </select>
+      <button class="remove" onclick="this.parentElement.remove(); calc()">×</button>
+    `;
+    
+    const sourceSpan = document.createElement('span');
+    sourceSpan.className = `source-badge source-${source}`;
+    sourceSpan.textContent = source;
+    sourceSpan.style.gridColumn = '2';
+    sourceSpan.style.fontSize = '0.65rem';
+    sourceSpan.style.justifySelf = 'start';
+    
+    div.setAttribute('data-source', source);
+    rows.appendChild(div);
+    
+    updateDimensionCount();
+    calc();
+  }
+
+  function updateSource(input) {
+    const row = input.closest('.row');
+    const badge = row.querySelector('.source-badge');
+    
+    const tolUpper = parseFloat(row.querySelectorAll('input')[3].value);
+    const tolLower = parseFloat(row.querySelectorAll('input')[4].value);
+    
+    if ((tolUpper && tolUpper > 0) || (tolLower && tolLower > 0)) {
+      row.setAttribute('data-source', 'explicit');
+      if (badge) {
+        badge.className = 'source-badge source-explicit';
+        badge.textContent = 'explicit';
+      }
+    }
+  }
+
+  function updateDimensionCount() {
+    const count = rows.querySelectorAll('.row').length;
+    document.getElementById('dimCount').textContent = `${count} dimension${count !== 1 ? 's' : ''}`;
+  }
+
+  function calc() {
+    let nominal = 0;
+    let tolSum = 0;
+    const activeDims = [];
+
+    rows.querySelectorAll('.row').forEach(r => {
+      const checkbox = r.querySelector('input[type="checkbox"]');
+      const inputs = r.querySelectorAll('input');
+      const direction = r.querySelector('select').value;
+      
+      if (!checkbox.checked) {
+        r.classList.add('disabled');
+        return;
+      }
+      
+      r.classList.remove('disabled');
+      
+      const v = parseFloat(inputs[2].value) || 0;
+      let tolUpper = parseFloat(inputs[3].value);
+      let tolLower = parseFloat(inputs[4].value);
+      
+      // Apply global tolerance if no explicit tolerance
+      if ((!tolUpper || tolUpper === 0) && (!tolLower || tolLower === 0)) {
+        if (globalTolerance) {
+          if (globalTolerance.type === 'custom') {
+            tolUpper = tolLower = globalTolerance.value;
+          } else {
+            const tol = getISO2768Tolerance(v, globalTolerance.value);
+            if (tol) tolUpper = tolLower = tol;
+          }
+        }
+      }
+      
+      tolUpper = tolUpper || 0;
+      tolLower = tolLower || 0;
+      
+      const sign = direction === '+' ? 1 : -1;
+      nominal += v * sign;
+      tolSum += (tolUpper + tolLower) / 2;
+      
+      activeDims.push({ value: v, tol: (tolUpper + tolLower) / 2 });
+    });
+
+    const min = nominal - tolSum;
+    const max = nominal + tolSum;
+
+    document.getElementById('nominal').textContent = nominal.toFixed(3);
+    document.getElementById('tolerance').textContent = tolSum.toFixed(3);
+    document.getElementById('range').textContent = `${min.toFixed(3)} / ${max.toFixed(3)}`;
+
+    // Calculate sensitivity (tolerance as % of nominal)
+    const sensitivity = nominal !== 0 ? (tolSum / Math.abs(nominal) * 100) : 0;
+    document.getElementById('sensitivity').textContent = sensitivity.toFixed(1) + '%';
+    
+    const sensitivityElem = document.getElementById('sensitivity');
+    if (sensitivity < 5) {
+      sensitivityElem.className = 'value ok';
+    } else if (sensitivity < 15) {
+      sensitivityElem.className = 'value warning';
+    } else {
+      sensitivityElem.className = 'value bad';
+    }
+
+    // Update visualization
+    const viz = document.getElementById('viz');
+    const width = Math.min(100, nominal !== 0 ? (tolSum / Math.abs(nominal)) * 100 : 0);
+    viz.style.width = Math.max(2, width) + '%';
+  }
+
+  // Initialize with example data
+  updateGlobalTolerance();
+  addRow('Part A', 50, 0.025, 0.025, '+', 'fit');
+  addRow('Part B', 30, 0.1, 0.1, '+', 'explicit');
+  addRow('Gap', 5, '', '', '-', 'global');
+</script>
+
+</body>
+</html>
